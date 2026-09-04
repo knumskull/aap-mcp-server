@@ -35,10 +35,7 @@ import {
   type ProtectedResourceConfig,
   type Rfc6750Error,
 } from "./oauth2/protected-resource-metadata.js";
-import {
-  describeInboundAuth,
-  extractMcpRpcMethod,
-} from "./http-debug.js";
+import { describeInboundAuth, extractMcpRpcMethod } from "./http-debug.js";
 
 // Load environment variables
 config();
