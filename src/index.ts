@@ -192,11 +192,22 @@ const validateToken = async (bearerToken: string): Promise<UserInfo> => {
       return {};
     }
   } catch (error) {
+    console.error("Token validation failed:", error);
     throw new Error(
       `Token validation failed: ${error instanceof Error ? error.message : String(error)}`,
       { cause: error },
     );
   }
+};
+
+// Normalize auth header to handle Express returning string[] for duplicate headers
+const normalizeAuthHeader = (
+  authOrXAuth: string | string[] | undefined,
+): string | undefined => {
+  if (!authOrXAuth) return undefined;
+  // If Express received duplicate headers, it returns string[]
+  // Take the first value to prevent crashes in downstream code
+  return Array.isArray(authOrXAuth) ? authOrXAuth[0] : authOrXAuth;
 };
 
 // Determine user toolset based on toolset name
@@ -505,8 +516,9 @@ app.use((req, res, next) => {
   // Only apply to POST requests to MCP endpoints
   if (req.method === "POST" && req.path.includes("/mcp")) {
     const sessionId = req.headers["mcp-session-id"];
-    const authHeader =
-      req.headers["authorization"] || req.headers["x-authorization"];
+    const authHeader = normalizeAuthHeader(
+      req.headers["authorization"] || req.headers["x-authorization"],
+    );
 
     // Reject requests without session ID or Authorization header immediately
     // This prevents expensive JSON parsing and session creation for unauthenticated requests
@@ -551,8 +563,9 @@ const authenticateRequest = async (
   | { ok: false; reason: "no-token" }
   | { ok: false; reason: "invalid-token" }
 > => {
-  const authHeader = (req.headers["authorization"] ||
-    req.headers["x-authorization"]) as string;
+  const authHeader = normalizeAuthHeader(
+    req.headers["authorization"] || req.headers["x-authorization"],
+  );
   const token = extractBearerToken(authHeader);
   if (!token) {
     return { ok: false, reason: "no-token" };
@@ -608,8 +621,9 @@ const mcpPostHandler = async (
   toolset: string = "all",
 ) => {
   const mcpMethod = extractMcpRpcMethod(req.body);
-  const authHeader = (req.headers["authorization"] ||
-    req.headers["x-authorization"]) as string | undefined;
+  const authHeader = normalizeAuthHeader(
+    req.headers["authorization"] || req.headers["x-authorization"],
+  );
   debugLog(
     `inbound ${req.method} ${req.path} toolset=${toolset} mcp=${mcpMethod ?? "unknown"} auth=${describeInboundAuth(authHeader)} ua=${(req.headers["user-agent"] as string) || "unknown"}`,
   );
